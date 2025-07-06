@@ -1,51 +1,43 @@
 import streamlit as st
 import pandas as pd
 import re
-import gspread
-from gspread_dataframe import get_as_dataframe
-from google.oauth2.service_account import Credentials
-import json
-import os
 
-# -----------------------------------
-# Load Google Sheets using Service Account
-# -----------------------------------
+# --- Title ---
+st.set_page_config(page_title="Influencer Search", layout="wide")
+st.title("🔍 Influencer Search App")
 
-# Load credentials from Streamlit Cloud secrets
-creds_dict = st.secrets["gcp_service_account"]
-creds = Credentials.from_service_account_info(creds_dict)
-gc = gspread.authorize(creds)
+# --- Load Data ---
+@st.cache_data
+def load_data():
+    df_main = pd.read_csv("df.csv")
+    df_secondary = pd.read_csv("df2.csv")
+    
+    # Clean newline characters
+    for col in ["NAME", "INF INSTAGRAM NAME"]:
+        if col in df_main.columns:
+            df_main[col] = df_main[col].astype(str).str.replace(r'[\r\n]+', ' ', regex=True).str.strip()
 
-# Open the spreadsheet and load worksheets
-sheet_url = "https://docs.google.com/spreadsheets/d/1G9G5LAYAMwmofYKW7YnCtPc5yfnymwC3xxiUjxrYpqs"
-spreadsheet = gc.open_by_url(sheet_url)
-worksheet1 = spreadsheet.worksheet("ALL DATA TABLE")
-worksheet2 = spreadsheet.worksheet("INSTAGRAM ANSWER")
+    for col in ["NAME", "INF"]:
+        if col in df_secondary.columns:
+            df_secondary[col] = df_secondary[col].astype(str).str.replace(r'[\r\n]+', ' ', regex=True).str.strip()
+    
+    return df_main, df_secondary
 
-df = get_as_dataframe(worksheet1, evaluate_formulas=True, skip_empty_rows=False).dropna(how='all')
-df2 = get_as_dataframe(worksheet2, evaluate_formulas=True, skip_empty_rows=False).dropna(how='all')
+df, df2 = load_data()
 
-# Clean newline characters
-df["NAME"] = df["NAME"].astype(str).str.replace(r'[\r\n]+', ' ', regex=True).str.strip()
-df["INF INSTAGRAM NAME"] = df["INF INSTAGRAM NAME"].astype(str).str.replace(r'[\r\n]+', ' ', regex=True).str.strip()
-df2["NAME"] = df2["NAME"].astype(str).str.replace(r'[\r\n]+', ' ', regex=True).str.strip()
-df2["INF"] = df2["INF"].astype(str).str.replace(r'[\r\n]+', ' ', regex=True).str.strip()
-
-# -----------------------------------
-# Helper to extract handle from Instagram link
-# -----------------------------------
+# --- Helper: Extract Handle from Link ---
 def extract_instagram_handle(link):
-    if not isinstance(link, str):
-        return None
-    clean_link = re.split(r'[\?]|/$', link)[0]
-    handle = clean_link.replace("https://www.instagram.com/", "")
-    handle = handle.replace("http://www.instagram.com/", "")
-    return handle.strip().strip("/")
+    try:
+        # Remove any tracking/query params
+        clean_link = re.split(r'\?igsh|/\?h|\?h', link)[0]
+        handle_part = clean_link.replace("https://www.instagram.com/", "").strip()
+        handle = handle_part.rstrip("/").strip()
+        return handle
+    except Exception:
+        return ""
 
-# -----------------------------------
-# Streamlit UI
-# -----------------------------------
-st.title("Influencer Search App")
+# --- Search Section ---
+st.markdown("### 🔎 Search Options")
 
 search_type = st.selectbox(
     "How would you like to search?",
@@ -54,6 +46,7 @@ search_type = st.selectbox(
 
 query = st.text_input("Enter your search text:")
 
+# --- On Search ---
 if st.button("Search"):
     if query.strip() == "":
         st.warning("Please enter something to search.")
@@ -62,34 +55,34 @@ if st.button("Search"):
             result1 = df[df["NAME"].str.contains(query, case=False, na=False)]
             result2 = df2[df2["NAME"].str.contains(query, case=False, na=False)]
 
-            st.subheader("Results from Dataset 1 (df)")
-            st.write(result1)
+            st.subheader("📁 Results from Dataset 1 (df.csv)")
+            st.dataframe(result1)
 
-            st.subheader("Results from Dataset 2 (df2)")
-            st.write(result2)
+            st.subheader("📁 Results from Dataset 2 (df2.csv)")
+            st.dataframe(result2)
 
         elif search_type == "Instagram Handle":
             result1 = df2[df2["INF"].str.contains(query, case=False, na=False)]
             result2 = df[df["INF INSTAGRAM NAME"].str.contains(query, case=False, na=False)]
 
-            st.subheader("Results from Dataset 2 (df2)")
-            st.write(result1)
+            st.subheader("📁 Results from Dataset 2 (df2.csv)")
+            st.dataframe(result1)
 
-            st.subheader("Results from Dataset 1 (df)")
-            st.write(result2)
+            st.subheader("📁 Results from Dataset 1 (df.csv)")
+            st.dataframe(result2)
 
         elif search_type == "Instagram Link":
             handle = extract_instagram_handle(query)
-            st.info(f"Extracted handle: **{handle}**")
+            if not handle:
+                st.warning("Could not extract a valid Instagram handle from the provided link.")
+            else:
+                st.success(f"✅ Extracted Instagram Handle: **{handle}**")
 
-            if handle:
                 result1 = df2[df2["INF"].str.contains(handle, case=False, na=False)]
                 result2 = df[df["INF INSTAGRAM NAME"].str.contains(handle, case=False, na=False)]
 
-                st.subheader("Results from Dataset 2 (df2)")
-                st.write(result1)
+                st.subheader("📁 Results from Dataset 2 (df2.csv)")
+                st.dataframe(result1)
 
-                st.subheader("Results from Dataset 1 (df)")
-                st.write(result2)
-            else:
-                st.warning("Could not extract a valid Instagram handle from the link.")
+                st.subheader("📁 Results from Dataset 1 (df.csv)")
+                st.dataframe(result2)
