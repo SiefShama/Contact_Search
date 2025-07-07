@@ -56,10 +56,10 @@ dropdown_selection = None
 if search_type in ["Influencer Name", "Instagram Handle", "Instagram Link"]:
     query = st.text_input("Enter your search text:")
 elif search_type == "Search by Category":
-    available_categories = sorted(df["category"].dropna().unique())
-    dropdown_selection = st.selectbox("Choose a category:", [""] + available_categories)
+    available_categories = sorted(df["Category"].dropna().unique())
+    dropdown_selection = st.selectbox("Choose a Category:", [""] + available_categories)
 elif search_type == "Search by Source":
-    available_sources = sorted(df["source"].dropna().unique())
+    available_sources = sorted(df["SOURCE"].dropna().unique())
     dropdown_selection = st.selectbox("Choose a source:", [""] + available_sources)
 
 # --- On Search ---
@@ -88,11 +88,11 @@ if st.button("Search"):
                 result2 = df[df["INF INSTAGRAM NAME"].str.contains(handle, case=False, na=False)]
 
         elif search_type == "Search by Category":
-            result1 = df[df["category"] == dropdown_selection]
+            result1 = df[df["Category"] == dropdown_selection]
             result2 = pd.DataFrame()  # No Instagram answer here
 
         elif search_type == "Search by Source":
-            result1 = df[df["source"] == dropdown_selection]
+            result1 = df[df["SOURCE"] == dropdown_selection]
             result2 = pd.DataFrame()  # No Instagram answer here
 
         # Display results
