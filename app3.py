@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
 import re
-import matplotlib.pyplot as plt
-import seaborn as sns
+import plotly.express as px
 
 # --- Page Setup ---
 st.set_page_config(page_title="Influencer Search", layout="wide")
@@ -14,7 +13,6 @@ def load_data():
     df_main = pd.read_csv("df.csv")
     df_secondary = pd.read_csv("df2.csv")
 
-    # Clean newline characters
     for col in ["NAME", "INF INSTAGRAM NAME"]:
         if col in df_main.columns:
             df_main[col] = df_main[col].astype(str).str.replace(r'[\r\n]+', ' ', regex=True).str.strip()
@@ -40,6 +38,7 @@ def extract_instagram_handle(link):
 # --- App Navigation ---
 page = st.radio("Choose Page:", ["🔍 Search", "📊 Plots"])
 
+# --- Search Page ---
 if page == "🔍 Search":
     st.markdown("### 🔎 Search Options")
 
@@ -58,25 +57,24 @@ if page == "🔍 Search":
     dropdown_selection = None
     search_mode = None
 
-    # --- Add input mode for Source and Category ---
     if search_type in ["Search by Category", "Search by Source"]:
         search_mode = st.radio("Choose Input Method:", ["Dropdown", "Write Text"])
 
-    # --- Input fields based on selection ---
     if search_type in ["Influencer Name", "Instagram Handle", "Instagram Link"]:
         query = st.text_input("Enter your search text:")
-    elif search_type in ["Search by Category", "Search by Source"]:
+    elif search_type == "Search by Category":
         if search_mode == "Dropdown":
-            if search_type == "Search by Category":
-                available_categories = sorted(df["Category"].dropna().unique())
-                dropdown_selection = st.selectbox("Choose a Category:", [""] + available_categories)
-            elif search_type == "Search by Source":
-                available_sources = sorted(df["SOURCE"].dropna().unique())
-                dropdown_selection = st.selectbox("Choose a Source:", [""] + available_sources)
+            available_categories = sorted(df["Category"].dropna().unique())
+            dropdown_selection = st.selectbox("Choose a Category:", [""] + available_categories)
         else:
-            query = st.text_input("Enter your search text:")
+            query = st.text_input("Enter category name:")
+    elif search_type == "Search by Source":
+        if search_mode == "Dropdown":
+            available_sources = sorted(df["SOURCE"].dropna().unique())
+            dropdown_selection = st.selectbox("Choose a Source:", [""] + available_sources)
+        else:
+            query = st.text_input("Enter source name:")
 
-    # --- On Search ---
     if st.button("Search"):
         if (search_type in ["Influencer Name", "Instagram Handle", "Instagram Link"] or search_mode == "Write Text") and query.strip() == "":
             st.warning("Please enter something to search.")
@@ -111,7 +109,7 @@ if page == "🔍 Search":
                 result1 = df[df["SOURCE"].str.contains(value, case=False, na=False)]
                 result2 = pd.DataFrame()
 
-            # Display results
+            # Display Results
             st.subheader("📁 All Data (df.csv)")
             st.dataframe(result2 if search_type in ["Instagram Handle", "Instagram Link"] else result1)
 
@@ -119,7 +117,7 @@ if page == "🔍 Search":
                 st.subheader("📁 Instagram Answer (df2.csv)")
                 st.dataframe(result1)
 
-# --- Plots Section ---
+# --- Plot Page ---
 elif page == "📊 Plots":
     st.markdown("### 📊 Data Visualizations")
     plot_option = st.radio("Select Plot:", ["Followers", "Source", "Category"])
@@ -127,30 +125,27 @@ elif page == "📊 Plots":
     if plot_option == "Followers":
         if "Followers" in df.columns:
             st.write("Distribution of Followers")
-            fig, ax = plt.subplots()
-            sns.histplot(df["Followers"].dropna(), bins=30, kde=True, ax=ax)
-            st.pyplot(fig)
+            fig = px.histogram(df, x="Followers", nbins=30, title="Followers Distribution")
+            st.plotly_chart(fig, use_container_width=True)
         else:
             st.warning("Followers column not found in the dataset.")
 
     elif plot_option == "Source":
         if "SOURCE" in df.columns:
             st.write("Influencer Count by Source")
-            fig, ax = plt.subplots()
-            df["SOURCE"].value_counts().plot(kind='bar', ax=ax)
-            ax.set_ylabel("Count")
-            ax.set_title("Source Distribution")
-            st.pyplot(fig)
+            source_counts = df["SOURCE"].value_counts().reset_index()
+            source_counts.columns = ["Source", "Count"]
+            fig = px.bar(source_counts, x="Source", y="Count", title="Source Distribution")
+            st.plotly_chart(fig, use_container_width=True)
         else:
             st.warning("SOURCE column not found.")
 
     elif plot_option == "Category":
         if "Category" in df.columns:
             st.write("Influencer Count by Category")
-            fig, ax = plt.subplots()
-            df["Category"].value_counts().plot(kind='bar', ax=ax)
-            ax.set_ylabel("Count")
-            ax.set_title("Category Distribution")
-            st.pyplot(fig)
+            cat_counts = df["Category"].value_counts().reset_index()
+            cat_counts.columns = ["Category", "Count"]
+            fig = px.bar(cat_counts, x="Category", y="Count", title="Category Distribution")
+            st.plotly_chart(fig, use_container_width=True)
         else:
             st.warning("Category column not found.")
